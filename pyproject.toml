@@ -14,7 +14,7 @@ authors = [
 ]
 dependencies = [
     "fastmcp",
-    "twikit",
+    "twikit==2.3.3",  # pinned: gql.py patched for withArticlePlainText
     "requests",
 ]
 

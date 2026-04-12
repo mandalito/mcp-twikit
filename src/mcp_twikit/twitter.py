@@ -105,12 +105,15 @@ async def get_all_user_tweets(username: str, tweet_type: str = 'Tweets', ctx: Co
             return f"Could not find user {username}"
 
         all_tweets = []
-        tweets = await client.get_user_tweets(
-            user_id=user.id,
-            tweet_type=tweet_type,
-            count=40
-        )
-        all_tweets.extend(tweets)
+        try:
+            tweets = await client.get_user_tweets(
+                user_id=user.id,
+                tweet_type=tweet_type,
+                count=40
+            )
+            all_tweets.extend(tweets)
+        except (IndexError, KeyError):
+            return f"Total: 0 tweets\n\nNo {tweet_type.lower()} found for @{username}."
 
         while tweets:
             try:
@@ -120,6 +123,9 @@ async def get_all_user_tweets(username: str, tweet_type: str = 'Tweets', ctx: Co
                 all_tweets.extend(tweets)
             except Exception:
                 break
+
+        if not all_tweets:
+            return f"Total: 0 tweets\n\nNo {tweet_type.lower()} found for @{username}."
 
         return f"Total: {len(all_tweets)} tweets\n\n{convert_tweets_to_markdown(all_tweets)}"
     except Exception as e:
