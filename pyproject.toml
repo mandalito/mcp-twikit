@@ -14,9 +14,13 @@ authors = [
 ]
 dependencies = [
     "fastmcp",
-    "twikit==2.3.3",  # pinned: gql.py patched for withArticlePlainText
+    # Private copy of twikit 2.3.3 with patches: article text, missing user fields, KEY_BYTE fix
+    "twikit @ git+ssh://git@github.com/mandalito/twikit.git@5d91a11431871f0acc3ada50c37f820c2850783e",
     "requests",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [project.urls]
 Homepage = "https://github.com/adhikasp/mcp-twikit"
