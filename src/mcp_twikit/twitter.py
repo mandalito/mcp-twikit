@@ -472,7 +472,10 @@ def _get_note_text(data: dict) -> str | None:
 
 async def _resolve_tweet_urls(client, tweet) -> list[str]:
     """Get expanded URLs from a tweet, with t.co fallback."""
-    urls = tweet.urls
+    try:
+        urls = tweet.urls
+    except (KeyError, AttributeError, TypeError):
+        urls = None
     result = []
     if urls:
         for u in urls:
@@ -679,7 +682,10 @@ async def get_tweet_links(tweet_id: str) -> str:
             return f"Could not find tweet {tweet_id}"
 
         tweet = tweets[0]
-        urls = tweet.urls
+        try:
+            urls = tweet.urls
+        except (KeyError, AttributeError, TypeError):
+            urls = None
 
         result = []
 
@@ -732,8 +738,12 @@ async def get_parent_tweet(tweet_id: str) -> str:
                     result.append(f"\n📄 [Parent has X Article - use get_tweet_article with ID {parent.id}]")
 
                 # Check parent URLs
-                if parent.urls:
-                    for url_entity in parent.urls:
+                try:
+                    parent_urls = parent.urls
+                except (KeyError, AttributeError, TypeError):
+                    parent_urls = None
+                if parent_urls:
+                    for url_entity in parent_urls:
                         expanded = url_entity.get('expanded_url')
                         if expanded:
                             result.append(f"🔗 {expanded}")
@@ -761,8 +771,12 @@ async def get_parent_tweet(tweet_id: str) -> str:
                 if quoted_article.get('article_results', {}).get('result', {}).get('content_state', {}).get('blocks'):
                     result.append(f"\n📄 [Quoted tweet has X Article - use get_tweet_article with ID {quoted.id}]")
 
-                if quoted.urls:
-                    for url_entity in quoted.urls:
+                try:
+                    quoted_urls = quoted.urls
+                except (KeyError, AttributeError, TypeError):
+                    quoted_urls = None
+                if quoted_urls:
+                    for url_entity in quoted_urls:
                         expanded = url_entity.get('expanded_url')
                         if expanded:
                             result.append(f"🔗 {expanded}")
@@ -783,38 +797,46 @@ def convert_tweets_to_markdown(tweets) -> str:
     """Convert a list of tweets to markdown format with full text, expanded URLs, and media details."""
     result = []
     for tweet in tweets:
-        result.append(f"### @{tweet.user.screen_name} (ID: {tweet.id})")
-        result.append(f"**{tweet.created_at}**")
-        result.append(tweet.full_text)
+        try:
+            result.append(f"### @{tweet.user.screen_name} (ID: {tweet.id})")
+            result.append(f"**{tweet.created_at}**")
+            result.append(tweet.full_text)
 
-        # Show reply/quote context
-        if tweet.in_reply_to:
-            result.append(f"↩️ reply to tweet {tweet.in_reply_to}")
-        if tweet.is_quote_status and tweet.quote:
-            q = tweet.quote
-            result.append(f"💬 quoting @{q.user.screen_name}: {q.full_text[:150]}...")
+            # Show reply/quote context
+            if tweet.in_reply_to:
+                result.append(f"↩️ reply to tweet {tweet.in_reply_to}")
+            if tweet.is_quote_status and tweet.quote:
+                q = tweet.quote
+                result.append(f"💬 quoting @{q.user.screen_name}: {q.full_text[:150]}...")
 
-        # Show expanded URLs (with fallback to t.co extraction from text)
-        if tweet.urls:
-            for url_entity in tweet.urls:
-                expanded = url_entity.get('expanded_url')
-                if expanded:
-                    result.append(f"🔗 {expanded}")
-        else:
-            tco_links = re.findall(r'https://t\.co/\w+', tweet.full_text)
-            for link in tco_links:
-                result.append(f"🔗 {link} (t.co - use get_tweet_links to resolve)")
+            # Show expanded URLs (with fallback to t.co extraction from text)
+            try:
+                urls = tweet.urls
+            except (KeyError, AttributeError, TypeError):
+                urls = None
+            if urls:
+                for url_entity in urls:
+                    expanded = url_entity.get('expanded_url')
+                    if expanded:
+                        result.append(f"🔗 {expanded}")
+            else:
+                tco_links = re.findall(r'https://t\.co/\w+', tweet.full_text)
+                for link in tco_links:
+                    result.append(f"🔗 {link} (t.co - use get_tweet_links to resolve)")
 
-        # Show media with type and actual media URLs
-        if tweet.media:
-            for media in tweet.media:
-                media_type = media.type or 'unknown'
-                if isinstance(media, Photo):
-                    result.append(f"📷 [photo] {media.media_url}")
-                elif isinstance(media, Video):
-                    result.append(f"🎬 [video] {media.media_url}")
-                else:
-                    result.append(f"[{media_type}] {media.media_url}")
+            # Show media with type and actual media URLs
+            if tweet.media:
+                for media in tweet.media:
+                    media_type = media.type or 'unknown'
+                    if isinstance(media, Photo):
+                        result.append(f"📷 [photo] {media.media_url}")
+                    elif isinstance(media, Video):
+                        result.append(f"🎬 [video] {media.media_url}")
+                    else:
+                        result.append(f"[{media_type}] {media.media_url}")
+
+        except Exception as e:
+            result.append(f"### [Tweet ID: {getattr(tweet, 'id', 'unknown')}] (skipped: {e})")
 
         result.append("---")
     return "\n".join(result)
