@@ -311,6 +311,58 @@ async def delete_bookmark(tweet_id: str) -> str:
         logger.error(f"Failed to delete bookmark: {e}")
         return f"Failed to delete bookmark: {e}"
 
+async def _resolve_account(client, username: Optional[str], tweet_id: Optional[str]):
+    """Find one account from its username, or from the author of a tweet."""
+    if bool(username) == bool(tweet_id):
+        raise ValueError("Provide either username or tweet_id, not both")
+    if username:
+        return await client.get_user_by_screen_name(username.lstrip('@'))
+    tweets = await client.get_tweets_by_ids([tweet_id])
+    if not tweets or tweets[0] is None:
+        raise ValueError(f"Could not find tweet {tweet_id}")
+    return tweets[0].user
+
+async def _apply_to_account(method: str, label: str, username: Optional[str], tweet_id: Optional[str]) -> str:
+    """Run one account action on a single account and name the account it was applied to."""
+    try:
+        client = await get_twitter_client()
+        user = await _resolve_account(client, username, tweet_id)
+        await getattr(client, method)(user.id)
+        return f"Successfully {label} @{user.screen_name}"
+    except Exception as e:
+        logger.error(f"Failed {method}: {e}")
+        return f"Failed {method}: {e}"
+
+@mcp.tool()
+async def follow_user(username: Optional[str] = None, tweet_id: Optional[str] = None) -> str:
+    """Follow one account, given its username or the ID of one of its tweets."""
+    return await _apply_to_account('follow_user', 'followed', username, tweet_id)
+
+@mcp.tool()
+async def unfollow_user(username: Optional[str] = None, tweet_id: Optional[str] = None) -> str:
+    """Unfollow one account, given its username or the ID of one of its tweets."""
+    return await _apply_to_account('unfollow_user', 'unfollowed', username, tweet_id)
+
+@mcp.tool()
+async def mute_user(username: Optional[str] = None, tweet_id: Optional[str] = None) -> str:
+    """Mute one account, given its username or the ID of one of its tweets."""
+    return await _apply_to_account('mute_user', 'muted', username, tweet_id)
+
+@mcp.tool()
+async def unmute_user(username: Optional[str] = None, tweet_id: Optional[str] = None) -> str:
+    """Unmute one account, given its username or the ID of one of its tweets."""
+    return await _apply_to_account('unmute_user', 'unmuted', username, tweet_id)
+
+@mcp.tool()
+async def block_user(username: Optional[str] = None, tweet_id: Optional[str] = None) -> str:
+    """Block one account, given its username or the ID of one of its tweets."""
+    return await _apply_to_account('block_user', 'blocked', username, tweet_id)
+
+@mcp.tool()
+async def unblock_user(username: Optional[str] = None, tweet_id: Optional[str] = None) -> str:
+    """Unblock one account, given its username or the ID of one of its tweets."""
+    return await _apply_to_account('unblock_user', 'unblocked', username, tweet_id)
+
 @mcp.tool()
 async def get_thread(tweet_id: str) -> str:
     """Get a tweet and its full thread (self-thread continuation + replies). Returns the main tweet, thread continuation, and top replies."""
