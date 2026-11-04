@@ -14,8 +14,8 @@ authors = [
 ]
 dependencies = [
     "fastmcp",
-    # Private copy of twikit 2.3.3 with patches: article text, missing user fields, KEY_BYTE fix
-    "twikit @ git+ssh://git@github.com/mandalito/twikit.git@5d91a11431871f0acc3ada50c37f820c2850783e",
+    # Private copy of twikit 2.3.3 with patches: article text, missing user fields, KEY_BYTE fix, reply cursors
+    "twikit @ git+ssh://git@github.com/mandalito/twikit.git@b9361c6ad6c0b9791829e5d566b6e66a54f7f109",
     "requests",
 ]
 
