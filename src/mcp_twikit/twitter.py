@@ -115,19 +115,24 @@ async def get_all_user_tweets(username: str, tweet_type: str = 'Tweets', ctx: Co
         except (IndexError, KeyError):
             return f"Total: 0 tweets\n\nNo {tweet_type.lower()} found for @{username}."
 
+        error = None
         while tweets:
             try:
                 tweets = await tweets.next()
                 if not tweets:
                     break
                 all_tweets.extend(tweets)
-            except Exception:
+            except (IndexError, KeyError):
+                break  # The last page has no next cursor
+            except Exception as e:
+                error = e
                 break
 
         if not all_tweets:
             return f"Total: 0 tweets\n\nNo {tweet_type.lower()} found for @{username}."
 
-        return f"Total: {len(all_tweets)} tweets\n\n{convert_tweets_to_markdown(all_tweets)}"
+        warning = f"WARNING: partial list, pagination stopped on an error: {error}\n\n" if error else ""
+        return f"{warning}Total: {len(all_tweets)} tweets\n\n{convert_tweets_to_markdown(all_tweets)}"
     except Exception as e:
         logger.error(f"Failed to get all user tweets: {e}")
         return f"Failed to get all user tweets: {e}"
@@ -153,6 +158,39 @@ async def get_latest_timeline(count: int = 20) -> str:
     except Exception as e:
         logger.error(f"Failed to get latest timeline: {e}")
         return f"Failed to get latest timeline: {e}"
+
+@mcp.tool()
+async def get_all_bookmarks(ctx: Context = None) -> str:
+    """Get ALL of your bookmarks by auto-paginating through all pages."""
+    try:
+        client = await get_twitter_client()
+        tweets = await client.get_bookmarks(count=40)
+
+        all_tweets = []
+        seen_ids = set()
+        error = None
+        while tweets:
+            new_tweets = [t for t in tweets if t.id not in seen_ids]
+            if not new_tweets:
+                break
+            seen_ids.update(t.id for t in new_tweets)
+            all_tweets.extend(new_tweets)
+            try:
+                tweets = await tweets.next()
+            except (IndexError, KeyError):
+                break  # The last page has no next cursor
+            except Exception as e:
+                error = e
+                break
+
+        if not all_tweets:
+            return "Total: 0 bookmarks"
+
+        warning = f"WARNING: partial list, pagination stopped on an error: {error}\n\n" if error else ""
+        return f"{warning}Total: {len(all_tweets)} bookmarks\n\n{convert_tweets_to_markdown(all_tweets)}"
+    except Exception as e:
+        logger.error(f"Failed to get bookmarks: {e}")
+        return f"Failed to get bookmarks: {e}"
 
 # Write tools
 @mcp.tool()
@@ -261,6 +299,17 @@ async def unlike_tweet(tweet_id: str) -> str:
     except Exception as e:
         logger.error(f"Failed to unlike tweet: {e}")
         return f"Failed to unlike tweet: {e}"
+
+@mcp.tool()
+async def delete_bookmark(tweet_id: str) -> str:
+    """Remove a tweet from your bookmarks by its ID."""
+    try:
+        client = await get_twitter_client()
+        await client.delete_bookmark(tweet_id)
+        return f"Successfully removed tweet {tweet_id} from bookmarks"
+    except Exception as e:
+        logger.error(f"Failed to delete bookmark: {e}")
+        return f"Failed to delete bookmark: {e}"
 
 @mcp.tool()
 async def get_thread(tweet_id: str) -> str:
